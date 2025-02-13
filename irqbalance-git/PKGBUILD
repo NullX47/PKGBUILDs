@@ -28,7 +28,7 @@ makedepends=(
   ncurses
   libnl
 )
-provides=("${_pkgname}")
+provides=("${pkgname}")
 conflicts=("${_pkgname}")
 source=(
   "git+$url.git"
