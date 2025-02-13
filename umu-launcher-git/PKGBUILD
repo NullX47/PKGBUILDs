@@ -1,0 +1,104 @@
+# Maintainer: NullX47 <nullx47@archlinux.org>
+# Maintainer: loathingkernel <loathingkernel _a_ gmail _d_ com>
+
+pkgname=umu-launcher-git
+pkgver=1.1.4.r48.57f9dfce
+pkgrel=1
+pkgdesc="This is a unified launcher for Windows games on Linux. It is essentially a copy
+of the Steam Runtime Tools and Steam Linux Runtime that Valve uses for Proton,
+with some modifications made so that it can be used outside of Steam."
+arch=('x86_64')
+url="https://github.com/Open-Wine-Components/umu-launcher"
+license=('GPL-3.0-only')
+depends=(
+  # steam
+  bash
+  desktop-file-utils
+  diffutils
+  hicolor-icon-theme
+  curl
+  dbus
+  freetype2
+  gdk-pixbuf2
+  ttf-font
+  zenity
+  lsb-release
+  nss
+  usbutils
+  xorg-xrandr
+  vulkan-driver
+  vulkan-icd-loader
+  lsof
+  python
+  xdg-user-dirs
+  glibc
+  libxcrypt
+  libxcrypt-compat
+  gcc-libs
+  # umu
+  python-xlib
+  python-xxhash
+  python-pyzstd
+  python-cbor2
+  python-urllib3
+)
+depends_x86_64=(
+  lib32-glibc
+  lib32-libxcrypt
+  lib32-libxcrypt-compat
+  lib32-libgl
+  lib32-gcc-libs
+  lib32-libx11
+  lib32-libxss
+  lib32-alsa-plugins
+  lib32-libgpg-error
+  lib32-nss
+  lib32-vulkan-driver
+  lib32-vulkan-icd-loader
+)
+makedepends=(
+  git
+  scdoc
+  python-build
+  python-installer
+  python-hatchling
+  python-maturin
+  python-pip
+  python-hatch-vcs
+  python-wheel
+)
+provides=('umu-launcher')
+conflicts=('umu-launcher')
+source=(
+  "git+$url.git"
+)
+sha256sums=('SKIP')
+
+pkgver() {
+  cd "$srcdir"/umu-launcher
+  printf "%s" "$(git describe --long --tags | sed 's/\([^-]*-\)g/r\1/;s/-/./g')"
+}
+
+prepare() {
+  cd "$srcdir"/umu-launcher
+  export RUSTUP_TOOLCHAIN=stable
+  export CARGO_HOME="${srcdir}"/umu-cargo
+  git submodule update --init --recursive
+  cargo update
+  cargo fetch --locked --target "$(rustc -vV | sed -n 's/host: //p')"
+}
+
+build() {
+  cd "$srcdir"/umu-launcher
+  export RUSTUP_TOOLCHAIN=stable
+  export CARGO_TARGET_DIR=target  
+  export CARGO_HOME="${srcdir}"/umu-cargo
+  cargo build --frozen --release --all-features
+  ./configure.sh --prefix=/usr
+  make
+}
+
+package() {
+  cd "$srcdir"/umu-launcher
+  make DESTDIR="$pkgdir" install
+}
