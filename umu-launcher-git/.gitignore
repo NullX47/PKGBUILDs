@@ -1,1 +1,4 @@
-umu-launcher
+*
+!PKGBUILD
+!.SRCINFO
+!.gitignore
