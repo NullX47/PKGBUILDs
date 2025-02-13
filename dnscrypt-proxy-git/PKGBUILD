@@ -1,0 +1,107 @@
+# Maintainer: NullX47 <nullx47@archlinux.org>
+# Maintainer: D357R0Y3R <109698175+D357R0Y3R@users.noreply.github.com>
+
+_pkgname=dnscrypt-proxy
+pkgname="${_pkgname}-git"
+pkgver=2.1.7.r18.gb2e74ca1
+pkgrel=1
+pkgdesc="A flexible DNS proxy, with support for modern encrypted DNS protocols
+such as DNSCrypt v2, DNS-over-HTTPS, Anonymized DNSCrypt
+and ODoH (Oblivious DoH)."
+arch=('x86_64')
+url="https://dnscrypt.info"
+license=('ISC')
+depends=(
+  glibc
+)
+makedepends=(
+  git
+  go
+)
+optdepends=(
+  'python-urllib3: for generate-domains-blocklist'
+)
+backup=(
+  etc/${_pkgname}/${_pkgname}.toml
+  etc/${_pkgname}/allowed-ips.txt
+  etc/${_pkgname}/allowed-names.txt
+  etc/${_pkgname}/blocked-ips.txt
+  etc/${_pkgname}/blocked-names.txt
+  etc/${_pkgname}/cloaking-rules.txt
+  etc/${_pkgname}/forwarding-rules.txt
+)
+provides=("${pkgname}")
+conflicts=("${_pkgname}")
+install=${_pkgname}.install
+# NOTE: LTO breaks reproducibility :(
+options=(!lto)
+source=(
+  "${pkgname}::git+https://github.com/DNSCrypt/dnscrypt-proxy.git"
+  "${_pkgname}.toml"
+  "${_pkgname}.service"
+  "${_pkgname}.socket"
+  "dnscrypt-user.conf"
+)
+sha512sums=('SKIP'
+            '203d4be5882dcfdddc02daef4f031072f86303c74a2d84d51d776b3da88773bcb90570cb586a3caa2fe43a244e25b5b787ea8c4c8c4113572d15dc2d883835ac'
+            'a3f6b1f98919f414eca89e5b3d61a00909eabc078a1fdd473878f145abb175de2d15f4b05e51d066adb6c5c086667cdda0606dc033dfb4f549858493541efa80'
+            'd4dee73c6fb01ccfea477e3e33be6d57c4ef5bbc98c8c3e421ac2e90bc6f0035619dfdb968cc88bc913db19747e7ee674ea9843f90235267403cbd06e4851371'
+            'fd78b0ac96f5c36def928da91aaeb3070a32b28b30dd45d54450cd50139ccd09206b27f72c1f3f9b4de3043551ca42c62546866a4fabf597ceb6be381ccac7fa')
+
+pkgver() {
+  cd "${srcdir}/${pkgname}"
+
+  git describe --long | sed 's/\([^-]*-g\)/r\1/;s/-/./g'
+}
+
+build() {
+  cd "${srcdir}/${pkgname}/${_pkgname}"
+
+  export CGO_CPPFLAGS="$CPPFLAGS"
+  export CGO_CFLAGS="$CFLAGS"
+  export CGO_CXXFLAGS="$CXXFLAGS"
+  export CGO_LDFLAGS="$LDFLAGS"
+  export GOPATH="${srcdir}"
+  export GOFLAGS="-buildmode=pie -mod=vendor -modcacherw"
+
+  go build -ldflags "-compressdwarf=false -linkmode external" .
+}
+
+check() {
+  cd "${srcdir}/${pkgname}"
+
+  go test ./...
+}
+
+package() {
+  cd "${srcdir}/${pkgname}"
+
+  # Directories
+  install -Dm 755 -d \
+  "${pkgdir}/etc/dnscrypt-proxy" \
+  "${pkgdir}/var/lib/dnscrypt-proxy" \
+  "${pkgdir}/var/log/dnscrypt-proxy"
+
+  # executable
+  install -Dm 755 ${_pkgname}/${_pkgname} -t "${pkgdir}/usr/bin/"
+  # config files
+  install -Dm 644 ../${_pkgname}.toml "${pkgdir}/etc/${_pkgname}/${_pkgname}.toml"
+  local _config
+  for _config in {{allowed,blocked}-{ips,names},{cloaking,forwarding}-rules,captive-portals}.txt; do
+	install -Dm 644 ${_pkgname}/example-$_config "${pkgdir}/etc/${_pkgname}/$_config"
+  done
+  # python path instead of env
+  sed -i "1s/#! \/usr\/bin\/env python3/#! \/usr\/bin\/python3/" utils/generate-domains-blocklist/generate-domains-blocklist.py
+  # utils
+  install -Dm 644 utils/generate-domains-blocklist/*.{conf,txt} -t "${pkgdir}/usr/share/${_pkgname}/utils/generate-domains-blocklist"
+  install -Dm 755 utils/generate-domains-blocklist/generate-domains-blocklist.py "${pkgdir}/usr/bin/generate-domains-blocklist"
+  # Systemd service/socket
+  install -Dm 644 ../${_pkgname}.{service,socket} -t "${pkgdir}/usr/lib/systemd/system/"
+  # sysuser
+  install -Dm 644 ../dnscrypt-user.conf "${pkgdir}/usr/lib/sysusers.d/dnscrypt.conf"
+  # license
+  install -Dm 644 LICENSE -t "${pkgdir}/usr/share/licenses/${_pkgname}"
+  # docs
+  install -Dm 644 "${_pkgname}/example-${_pkgname}.toml" "${pkgdir}/usr/share/doc/${_pkgname}/example-${_pkgname}.toml"
+  install -Dm 644 {ChangeLog,README.md} -t "${pkgdir}/usr/share/doc/${_pkgname}"
+}

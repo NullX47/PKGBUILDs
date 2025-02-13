@@ -1,0 +1,42 @@
+[Unit]
+Description=DNSCrypt-proxy client
+Documentation=https://github.com/DNSCrypt/dnscrypt-proxy/wiki/systemd
+PartOf=dnscrypt-proxy.socket
+After=network.target
+Before=nss-lookup.target
+Wants=network-online.target nss-lookup.target
+
+[Service]
+Group=dnscrypt
+User=dnscrypt
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+ExecStart=/usr/bin/dnscrypt-proxy --config /etc/dnscrypt-proxy/dnscrypt-proxy.toml
+# May substitute command line option "pidfile".
+PIDFile=/run/dnscrypt-proxy/dnscrypt-proxy.pid
+ExecStartPost=-/usr/bin/bash -c '/usr/bin/echo -n $MAINPID > /run/dnscrypt-proxy/dnscrypt-proxy.pid'
+LockPersonality=yes
+MemoryDenyWriteExecute=true
+NonBlocking=true
+NoNewPrivileges=true
+PrivateDevices=true
+ProtectControlGroups=yes
+ProtectHome=yes
+ProtectHostname=yes
+ProtectKernelLogs=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+ProtectSystem=strict
+RestrictAddressFamilies=AF_INET AF_INET6
+RestrictNamespaces=true
+RestrictRealtime=true
+CacheDirectory=dnscrypt-proxy
+LogsDirectory=dnscrypt-proxy
+WorkingDirectory=~
+RuntimeDirectory=dnscrypt-proxy
+StateDirectory=dnscrypt-proxy
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+
+[Install]
+WantedBy=multi-user.target
