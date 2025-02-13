@@ -1,0 +1,109 @@
+# Maintainer: NullX47 <nullx47@archlinux.org>
+# Maintainer: xiota <xiota@archlinux.org>
+# Maintainer: SomeAspy <amb@aspy.dev>
+
+: ${_electron_dist:=/usr/lib/electron}
+: ${_install_path:=usr/share}
+
+_pkgname="legcord"
+pkgname="${_pkgname}-git"
+pkgver=r1780.07451f0
+pkgrel=1
+pkgdesc="Legcord is a custom client designed to enhance your Discord experience while keeping everything lightweight."
+url="https://github.com/Legcord/Legcord"
+license=('OSL-3.0')
+arch=('any')
+depends=(
+  'electron'
+)
+makedepends=(
+  'git'
+  'pnpm'
+  'yarn'
+)
+optdepends=(
+  'libnotify: Notifications'
+  'xdg-utils: Open links, files, etc'
+)
+provides=("${pkgname}")
+conflicts=("${_pkgname}")
+source=("${pkgname}::git+${url}.git")
+sha512sums=('SKIP')
+
+pkgver() {
+  cd "${srcdir}/${pkgname}"
+
+  printf "r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+}
+
+prepare() {
+  cd "${srcdir}/${pkgname}"
+
+  local _electron_version="$(cat $_electron_dist/version)"
+  sed -E -e 's#("electron"): "[^"]+",#\1: "'${_electron_version}'",#' \
+    -i "package.json"
+}
+
+build() (
+  cd "${srcdir}/${pkgname}"
+
+  export HOME="${srcdir}/tmp_home"
+  export XDG_CACHE_HOME="${srcdir}/tmp_cache"
+  export XDG_CONFIG_HOME="${srcdir}/tmp_config"
+  export XDG_DATA_HOME="${srcdir}/tmp_data"
+  export XDG_STATE_HOME="${srcdir}/tmp_state"
+
+  export NODE_ENV=production
+
+  NODE_ENV=development pnpm install --ignore-scripts
+  pnpm run build
+  pnpm -c exec "electron-builder --linux dir --publish never -c.electronDist=${_electron_dist} -c.electronVersion=$(cat $_electron_dist/version)"
+)
+
+package() {
+  cd "${srcdir}/${pkgname}"
+
+  install -Dm644 "dist/linux-unpacked/resources/app.asar" -t "${pkgdir}/$_install_path/${_pkgname}/"
+
+  install -Dm644 "build/icon.png" "${pkgdir}/$_install_path/pixmaps/${_pkgname}.png"
+
+  install -Dm644 "license.txt" "${pkgdir}/$_install_path/licenses/${pkgname}/LICENSE"
+
+  install -Dm755 /dev/stdin "${pkgdir}/usr/bin/${_pkgname}" << END
+#!/usr/bin/env bash
+
+name=${_pkgname}
+flags_file="\${XDG_CONFIG_HOME:-\$HOME/.config}/\${name}-flags.conf"
+
+lines=()
+if [[ -f "\${flags_file}" ]]; then
+  mapfile -t lines < "\${flags_file}"
+fi
+
+flags=()
+for line in "\${lines[@]}"; do
+  if [[ ! "\${line}" =~ ^[[:space:]]*#.* ]] && [[ -n "\${line}" ]]; then
+    flags+=("\${line}")
+  fi
+done
+
+: \${ELECTRON_IS_DEV:=0}
+export ELECTRON_IS_DEV
+: \${ELECTRON_FORCE_IS_PACKAGED:=true}
+export ELECTRON_FORCE_IS_PACKAGED
+
+exec electron "/$_install_path/\${name}/app.asar" "\${flags[@]}" "\$@"
+END
+
+  install -Dm644 /dev/stdin "${pkgdir}/$_install_path/applications/${_pkgname}.desktop" << END
+[Desktop Entry]
+Name=${_pkgname^}
+Comment=${pkgdesc}
+Exec=${_pkgname}
+Icon=${_pkgname}
+Type=Application
+Categories=Internet;Network;InstantMessaging;
+StartupWMClass=${_pkgname}
+Keywords=discord;legcord;vencord;shelter;electron;
+END
+}
