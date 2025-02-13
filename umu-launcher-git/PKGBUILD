@@ -1,7 +1,8 @@
 # Maintainer: NullX47 <nullx47@archlinux.org>
 # Maintainer: loathingkernel <loathingkernel _a_ gmail _d_ com>
 
-pkgname=umu-launcher-git
+_pkgname=umu-launcher
+pkgname=${_pkgname}-git
 pkgver=1.1.4.r48.57f9dfce
 pkgrel=1
 pkgdesc="This is a unified launcher for Windows games on Linux. It is essentially a copy
@@ -67,20 +68,20 @@ makedepends=(
   python-hatch-vcs
   python-wheel
 )
-provides=('umu-launcher')
-conflicts=('umu-launcher')
+provides=("${_pkgname}")
+conflicts=("${_pkgname}")
 source=(
   "git+$url.git"
 )
-sha256sums=('SKIP')
+sha512sums=('SKIP')
 
 pkgver() {
-  cd "$srcdir"/umu-launcher
+  cd "${srcdir}/${_pkgname}"
   printf "%s" "$(git describe --long --tags | sed 's/\([^-]*-\)g/r\1/;s/-/./g')"
 }
 
 prepare() {
-  cd "$srcdir"/umu-launcher
+  cd "${srcdir}/${_pkgname}"
   export RUSTUP_TOOLCHAIN=stable
   export CARGO_HOME="${srcdir}"/umu-cargo
   git submodule update --init --recursive
@@ -89,7 +90,7 @@ prepare() {
 }
 
 build() {
-  cd "$srcdir"/umu-launcher
+  cd "${srcdir}/${_pkgname}"
   export RUSTUP_TOOLCHAIN=stable
   export CARGO_TARGET_DIR=target  
   export CARGO_HOME="${srcdir}"/umu-cargo
@@ -99,6 +100,8 @@ build() {
 }
 
 package() {
-  cd "$srcdir"/umu-launcher
-  make DESTDIR="$pkgdir" install
+  cd "${srcdir}/${_pkgname}"
+  make DESTDIR="${pkgdir}" install
+  # Install license
+  install -Dm644 "LICENSE" "${pkgdir}/usr/share/licenses/${_pkgname}/LICENSE"
 }
