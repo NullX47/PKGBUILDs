@@ -68,7 +68,7 @@ makedepends=(
   python-hatch-vcs
   python-wheel
 )
-provides=("${_pkgname}")
+provides=("${pkgname}")
 conflicts=("${_pkgname}")
 source=(
   "git+$url.git"
