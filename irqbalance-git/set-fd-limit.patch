@@ -1,0 +1,10 @@
+--- irqbalance/misc/irqbalance.service
++++ irqbalance/misc/irqbalance.service
+@@ -16,6 +16,7 @@
+ ReadWritePaths=/proc/irq
+ RestrictAddressFamilies=AF_UNIX AF_NETLINK
+ RuntimeDirectory=irqbalance/
++LimitNOFILE=4096
+ IPAddressDeny=any
+ ProtectHome=true
+ PrivateTmp=yes 

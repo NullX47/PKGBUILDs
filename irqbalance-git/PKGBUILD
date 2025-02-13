@@ -1,0 +1,85 @@
+# Maintainer: NullX47 <nullx47@archlinux.org>
+# Maintainer: Chocobo1 <chocobo1 AT archlinux DOT net>
+# Maintainer: David Runge <dvzrv@archlinux.org>
+# Contributor: Dan McGee <dan@archlinux.org>
+# Contributor: Martin Striz <ms@poruba.net>
+
+_pkgname=irqbalance
+pkgname=${_pkgname}-git
+pkgver=r745.f45f62c
+pkgrel=1
+pkgdesc="irqbalance dynamically switches the CPUs for IRQs to prevent cpu0 from
+being used for all IRQs."
+arch=('x86_64')
+url="https://github.com/irqbalance/irqbalance"
+license=('GPL-2.0-or-later')
+backup=(etc/${_pkgname}.env)
+depends=(
+  glibc
+  numactl
+  systemd-libs
+)
+makedepends=(
+  git
+  glib2
+  libcap-ng
+  libtool
+  meson
+  ncurses
+  libnl
+)
+source=(
+  "git+$url.git"
+  "fix-service-paths.patch"
+  "set-fd-limit.patch"
+)
+sha512sums=('SKIP'
+            'a825f0c3fea2bc9ff6a40dd4eda674a67ffc51b006fb8fe87b263af369b8fc88f2fac337507be3388dda7d717b991a0c58f266cd22c1bbaa3dda6daf60d034d8'
+            'c778985bd66d6c5ef612578d9c2ec814f248f3b6c03d6a936fd49a500e0fcd4b6188bc8750884329bd1d074fa5e7af7b942ba3524a844daa7ddfca8d218bb194')
+
+pkgver() {
+    cd "${_pkgname}"
+
+    printf "r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+}
+
+prepare() {
+  cd "${srcdir}/${_pkgname}"
+
+  # Fix location of configuration and binary in service
+  msg2 "Fix location of configuration and binary in service"
+  patch -Np1 < ../fix-service-paths.patch
+  # Increase limit on file descriptors
+  msg2 "Increase limit on file descriptors"
+  patch -Np1 < ../set-fd-limit.patch
+}
+
+build() {
+  cd "${srcdir}/${_pkgname}"
+
+  NOCONFIGURE=1 ./autogen.sh
+  ./configure \
+    --prefix="/usr" \
+    --sbindir="/usr/bin" \
+    --enable-capng \
+    --enable-thermal \
+    --enable-ui
+  arch-meson build
+  meson compile -C build
+}
+
+check() {
+  cd "${srcdir}/${_pkgname}"
+
+  meson test -C build --print-errorlogs
+}
+
+package() {
+  cd "${srcdir}/${_pkgname}"
+
+  meson install -C build --destdir "${pkgdir}"
+  install -Dm644 "misc/irqbalance.service" "${pkgdir}/usr/lib/systemd/system/irqbalance.service"
+  install -Dm644 "misc/irqbalance.env" "${pkgdir}/etc/irqbalance.env"
+  install -Dm644 {AUTHORS,README.md} -t "${pkgdir}/usr/share/doc/${_pkgname}/"
+  install -Dm644 "COPYING" "${pkgdir}/usr/share/licenses/${_pkgname}/LICENSE"
+}
